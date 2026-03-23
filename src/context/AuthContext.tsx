@@ -20,37 +20,51 @@ export const AuthProvider = ({ children }: any) => {
   const [profileComplete, setProfileComplete] = useState(false);
 
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged(async (user) => {
-      if (user) {
-        try {
-  const doc = await firestore()
-    .collection('users')
-    .doc(user.uid)
-    .get();
+  let unsubscribeFirestore: any = null;
 
-  const data = doc.data();
+  const unsubscribeAuth = auth().onAuthStateChanged(async (user) => {
+    setLoading(true);
 
-  if (doc.exists && data?.phone) {
-    setProfileComplete(true);
-  } else {
-    setProfileComplete(false);
-  }
-} catch (e) {
-  console.log('Firestore error:', e);
+    if (user) {
+      await user.reload();
 
-  // 🔥 IMPORTANT: DON'T BLOCK USER
+      const isEmailUser = user.providerData.some(
+        p => p.providerId === 'password'
+      );
+
+if (isEmailUser && !user.emailVerified) {
+  console.log("Email not verified yet");
+
+  setUser(user); // ✅ keep user
   setProfileComplete(false);
+  setLoading(false);
+  return;
 }
-      } else {
-        setProfileComplete(false);
-      }
 
-      setUser(user);
+      // 🔥 REAL FIX: listen to Firestore changes
+      unsubscribeFirestore = firestore()
+        .collection('users')
+        .doc(user.uid)
+        .onSnapshot((doc) => {
+          console.log("PROFILE CHECK:", doc.exists);
+
+          setUser(user);
+          setProfileComplete(doc.exists);
+          setLoading(false);
+        });
+
+    } else {
+      setUser(null);
+      setProfileComplete(false);
       setLoading(false);
-    });
+    }
+  });
 
-    return subscriber;
-  }, []);
+  return () => {
+    unsubscribeAuth();
+    if (unsubscribeFirestore) unsubscribeFirestore();
+  };
+}, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, profileComplete }}>

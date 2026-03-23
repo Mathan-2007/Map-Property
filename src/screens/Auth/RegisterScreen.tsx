@@ -12,56 +12,26 @@ import {
   ScrollView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { Web_client_id } from '../../utils/constants';
+import { useNavigation } from '@react-navigation/native';
 
-GoogleSignin.configure({ webClientId: Web_client_id });
-
-export default function LoginScreen({ navigation }: any) {
+export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const navigation = useNavigation();
 
-const emailLogin = async () => {
-  try {
-    const userCredential = await auth().signInWithEmailAndPassword(email.trim(), password);
-
-    const user = userCredential.user;
-
-    // 🔥 FORCE reload to get latest verification status
-    await user.reload();
-    console.log("EMAIL:", email.trim());
-console.log("PASSWORD:", password);
-
-    if (!user.emailVerified) {
-      Alert.alert("Please verify your email first");
-      return;
-    }
-
-  } catch (e: any) {
-    console.log("LOGIN ERROR:", e);
-
-    if (e.code === 'auth/wrong-password') {
-      Alert.alert("Wrong password");
-    } else if (e.code === 'auth/user-not-found') {
-      Alert.alert("User not found");
-    } else {
-      Alert.alert("Login failed", e.message);
-    }
-  }
-};
-
-  const googleLogin = async () => {
+  const register = async () => {
     try {
-      await GoogleSignin.signOut();
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      const idToken = userInfo?.data?.idToken;
-      if (!idToken) return;
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-      await auth().signInWithCredential(googleCredential);
-    } catch (error) {
-      console.log('GOOGLE ERROR:', error);
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const user = auth().currentUser;
+      if (!user) { Alert.alert('User not ready. Try again.'); return; }
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await user.sendEmailVerification();
+      Alert.alert('Verification sent', 'Please check your inbox and verify your email before signing in.');
+      await auth().signOut();
+      navigation.navigate('Login');
+    } catch (e: any) {
+      Alert.alert('Registration failed', e.message);
     }
   };
 
@@ -78,14 +48,14 @@ console.log("PASSWORD:", password);
           <View style={styles.logoMark}>
             <Text style={styles.logoIcon}>⌂</Text>
           </View>
-          <Text style={styles.appName}>Map Property</Text>
+          <Text style={styles.appName}>nestfinder</Text>
           <Text style={styles.tagline}>Find your perfect place</Text>
         </View>
 
         {/* Form Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Welcome back</Text>
-          <Text style={styles.cardSubtitle}>Sign in to your account</Text>
+          <Text style={styles.cardTitle}>Create account</Text>
+          <Text style={styles.cardSubtitle}>Join thousands of property seekers</Text>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Email address</Text>
@@ -106,7 +76,7 @@ console.log("PASSWORD:", password);
             <Text style={styles.label}>Password</Text>
             <TextInput
               style={[styles.input, focusedField === 'password' && styles.inputFocused]}
-              placeholder="Enter your password"
+              placeholder="Create a strong password"
               placeholderTextColor="#B0A99F"
               secureTextEntry
               value={password}
@@ -116,26 +86,28 @@ console.log("PASSWORD:", password);
             />
           </View>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={emailLogin} activeOpacity={0.85}>
-            <Text style={styles.primaryBtnText}>Sign In</Text>
-          </TouchableOpacity>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+          {/* Password hint */}
+          <View style={styles.hintRow}>
+            <Text style={styles.hintText}>✓  At least 8 characters</Text>
+            <Text style={styles.hintText}>✓  One number or symbol</Text>
           </View>
 
-          <TouchableOpacity style={styles.googleBtn} onPress={googleLogin} activeOpacity={0.85}>
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleBtnText}>Continue with Google</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={register} activeOpacity={0.85}>
+            <Text style={styles.primaryBtnText}>Create Account</Text>
           </TouchableOpacity>
+
+          <Text style={styles.termsText}>
+            By registering, you agree to our{' '}
+            <Text style={styles.termsLink}>Terms of Service</Text>
+            {' '}and{' '}
+            <Text style={styles.termsLink}>Privacy Policy</Text>
+          </Text>
         </View>
 
         {/* Footer */}
-        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.footerRow}>
-          <Text style={styles.footerText}>New to Nestfinder? </Text>
-          <Text style={styles.footerLink}>Create account</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.footerRow}>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <Text style={styles.footerLink}>Sign in</Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -175,24 +147,18 @@ const styles = StyleSheet.create({
   },
   inputFocused: { borderColor: '#1C3D3A', backgroundColor: '#FFFFFF' },
 
+  hintRow: { flexDirection: 'row', gap: 16, marginBottom: 20, flexWrap: 'wrap' },
+  hintText: { fontSize: 12, color: '#8A8078' },
+
   primaryBtn: {
     backgroundColor: '#1C3D3A', borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginTop: 8,
+    alignItems: 'center', marginBottom: 18,
     shadowColor: '#1C3D3A', shadowOpacity: 0.35, shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 5,
   },
   primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#EAE7E3' },
-  dividerText: { marginHorizontal: 12, color: '#B0A99F', fontSize: 13 },
-
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#F7F5F2', borderRadius: 14, paddingVertical: 15,
-    borderWidth: 1.5, borderColor: '#EAE7E3',
-  },
-  googleIcon: { fontSize: 17, fontWeight: '800', color: '#EA4335', marginRight: 10 },
-  googleBtnText: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
+  termsText: { fontSize: 12, color: '#8A8078', textAlign: 'center', lineHeight: 18 },
+  termsLink: { color: '#1C3D3A', fontWeight: '600' },
 
   footerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   footerText: { fontSize: 14, color: '#8A8078' },
